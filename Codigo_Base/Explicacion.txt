@@ -1,0 +1,2 @@
+En esta carpeta se quedan los dos archivos que hice de prueba mientras investigaba sobre la parte de matemática tradicional del algoritmo.
+Los dejo aqui para que quede constancia de los avances realizados durante el desarrollo del TFG.

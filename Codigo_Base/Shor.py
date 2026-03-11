@@ -1,4 +1,4 @@
-from Transformaciones import Transformaciones
+from Codigo_Base.Parte_Matematica import Transformaciones
 
 class Shor:
     '''
