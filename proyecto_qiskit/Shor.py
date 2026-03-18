@@ -1,4 +1,11 @@
-from Codigo_Base.Parte_Matematica import Transformaciones
+from modulos import Transformaciones
+import math
+import random
+
+from qiskit import QuantumCircuit
+from qiskit.circuit.library import QFT
+from qiskit_aer import AerSimulator
+from qiskit_aer.primitives import Sampler 
 
 class Shor:
     '''
@@ -17,7 +24,7 @@ class Shor:
         self.N=N
         self.nQ=nQ
         self.a=2    # utilizar esta variable, para definir la base, ya sea sumandole 1 cada vez que falle, o algo por el estilo para que no se repitan nunca
-        
+        self.simulator = AerSimulator()
 
     def modificar_base(self):
         '''
@@ -31,54 +38,76 @@ class Shor:
         '''
         self.a = self.a+1 # Sumo 1 cada vez que se llama a esta función, así me aseguro que no se repiten nunca
 
+        # Compruebo que el mcd de la base y el modulo es 1
+        while (math.gcd(self.a,self.N) != 1):
+            self.a = self.a+1
+
     def obtener_c(self):
         '''
-        Esta función me devuelve la aproximación 'c' al múltiplo del periodo, proveniente de la QFT (Simulando el proceso en este caso).
-
-        Args:
-            N (int): Número a factorizar.
-            a (int): Base de la exponencial modular.
+        Usa Qiskit para crear un circuito, medir y obtener el valor 'c'.
 
         Returns:
             c (double): Valor de salida de la QFT.
         '''
-        return 64 # Valor puesto a mano para simular la intervención de una librería
+        bitsEntrada = self.N.bit_length() # Obtengo el numero de qubits necesarios para la exponencial modular
+        circuito = QuantumCircuit(self.nQ + bitsEntrada, self.nQ)
+
+        circuito.h(range(self.nQ)) # Aplico Hadamard al registro de la entrada
+
+        circuito.x(self.nQ)
+
+        qft = QFT(num_qubits=self.nQ, inverse=True).to_gate()
+        circuito.append(qft, range(self.nQ))
+
+        circuito.measure(range(self.nQ), range(self.nQ))
+
+        sampler = Sampler() 
+        job = sampler.run(circuito, shots=1)
+        result = job.result()
+
+        counts = result.quasi_dists[0]
+
+        c = max(counts, key=counts.get)
+
+        return c
+
+
 
     def calcular_factores(self, c):
         '''
         Esta función obtiene los factores primos de 'N' llamando a la función 'obtener_primos' de la clase 'Transformaciones'.
         
-        
         '''
-        return Transformaciones.obtener_primos(self.N, self.nQ, self.a, c)
+        t = Transformaciones(self.N, self.nQ, self.a, c)
+        return t.obtener_primos()
 
     def shor(self):
         '''
         Esta función llama al resto, y se encarga de que el proceso se repita hasta que los primos son correctos, primero haciendo que se repita la obtención de 'c',
         y si eso no funciona en un par de ocasiones, hará que se repita la elección de la base directamente.
         '''
-        print('\n')
-        correcto=False
+        print('\nIniciando Algoritmo de Shor')
+        correcto = False
 
-        while(not correcto):
-            # Modifico la base para la nueva iteración.
+        while not correcto:
             self.modificar_base()
-            print('Ejecutando el algoritmo con base = ',self.a)
+            if self.a >= self.N:
+                print("Se han agotado las bases posibles.")
+                break
+                
+            print(f'Probando base a = {self.a}')
 
-            # Al modificar la base, también debo de obtener otra 'c'.
-            c= self.obtener_c()
-            print('La c obtenida es = ', c)
+            c = self.obtener_c()
+            print(f'Valor c medido en el circuito: {c}')
 
-            # Trato de calcular los primos.
-            sol= self.calcular_factores(c)
+            sol = self.calcular_factores(c)
             print(sol[3])
-            correcto=sol[0]
-            print('\n')
+            correcto = sol[0]
 
-        print('Fin del algoritmo')
+        print('Proceso finalizado.')
 
    
 # Pruebas
 
-prueba= Shor(15,8,7)
+prueba= Shor(55, 10)
 prueba.shor()

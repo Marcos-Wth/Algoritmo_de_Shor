@@ -1,1 +1,2 @@
 # La función de este archivo es que python lea la carpeta como un modulo, y pueda ser importado de manera más efectiva desde el resto de los archivos
+from .Transformaciones import Transformaciones
