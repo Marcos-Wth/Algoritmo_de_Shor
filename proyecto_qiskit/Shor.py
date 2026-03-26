@@ -20,27 +20,26 @@ class Shor:
             N (int): Número a factorizar.
             nQ (int): Número de qubits con los que va a trabajar la exponencial modular.
         '''
-
         self.N=N
         self.nQ=nQ
-        self.a=2    # utilizar esta variable, para definir la base, ya sea sumandole 1 cada vez que falle, o algo por el estilo para que no se repitan nunca
+        self.a = 0
+        self.establecer_base()
+        self.basesUsadas = set()
+
         self.simulator = AerSimulator()
 
-    def modificar_base(self):
+    def establecer_base(self):
         '''
-        Esta función se encargará de modificar la base (a) de la exponencial modular.
-
-        Args:
-            N (int): Número a factorizar.
-
-        Returns:
-            a (int): Base a utilizar para la exponencial modular.
+        Esta función establece la primera base 'a' de la exponencial modular y la almacena en el atributo de clase
         '''
-        self.a = self.a+1 # Sumo 1 cada vez que se llama a esta función, así me aseguro que no se repiten nunca
+        base = random.randint(2,self.N-1)
 
-        # Compruebo que el mcd de la base y el modulo es 1
-        while (math.gcd(self.a,self.N) != 1):
-            self.a = self.a+1
+        while ((math.gcd(base, self.N) != 1) or base in self.basesUsadas):
+            self.basesUsadas.add(base)
+            base = random.randint(2,self.N-1)
+        
+        self.a = base
+        self.basesUsadas.add(base)
 
     def obtener_c(self):
         '''
@@ -63,6 +62,7 @@ class Shor:
 
         sampler = Sampler() 
         job = sampler.run(circuito, shots=1)
+        print ("JOB: ",job) # Debug
         result = job.result()
 
         counts = result.quasi_dists[0]
@@ -76,6 +76,9 @@ class Shor:
     def calcular_factores(self, c):
         '''
         Esta función obtiene los factores primos de 'N' llamando a la función 'obtener_primos' de la clase 'Transformaciones'.
+
+        Returns:
+        Devuelve una tupla de 4 elementos: 1º boolean, 2º int (p), 3º int (q), 4º string (codigo)
         
         '''
         t = Transformaciones(self.N, self.nQ, self.a, c)
@@ -88,10 +91,12 @@ class Shor:
         '''
         print('\nIniciando Algoritmo de Shor')
         correcto = False
+        bases = 0
 
         while not correcto:
-            self.modificar_base()
-            if self.a >= self.N:
+            self.establecer_base()
+            bases = bases +1
+            if bases >= self.N - 2:
                 print("Se han agotado las bases posibles.")
                 break
                 
@@ -104,7 +109,12 @@ class Shor:
             print(sol[3])
             correcto = sol[0]
 
-        print('Proceso finalizado.')
+        print('PROCESO FINALIZADO.')
+        p = sol[1]
+        q = sol[2]
+        r = sol[4]
+        print(sol[3])
+        return [p, q, c, r] # Devuelvo los valores para luego cuando haga el programa con interfaz
 
    
 # Pruebas

@@ -158,12 +158,12 @@ class Transformaciones():
         
         if r == -1:
             codigo= f"No se ha encontrado ninguna aproximación válida para r"
-            return [False, -1, -1, codigo]
+            return [False, -1, -1, codigo, r]
 
         # 2. Verificar si r es útil para la factorización
         if not self.condiciones_periodo(r):
             codigo= f"ERROR: El periodo r = {r} no es apto para factorizar N"
-            return [False, -1, -1, codigo]
+            return [False, -1, -1, codigo, r]
     
         # 3. Calcular candidatos a primos
         p, q = self.calcular_primos(r)
@@ -171,7 +171,7 @@ class Transformaciones():
         # 4. Verificación final
         if self.verificar_primos(p, q):
             codigo = f"PRIMOS ENCONTRADOS: N={self.N} -> p={p}, q={q} (periodo={r})"
-            return [True, p, q, codigo]
+            return [True, p, q, codigo, r]
         else:
             codigo = f"ERROR: Factores p={p}, q={q} no son válidos para N={self.N}"
-            return [False, p, q, codigo]
+            return [False, p, q, codigo, r]
