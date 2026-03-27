@@ -1,13 +1,7 @@
 import sys
 import os
-
-# 1. Obtenemos la ruta absoluta de la carpeta donde está este archivo (Shor.py)
 ruta_actual = os.path.dirname(os.path.abspath(__file__))
-
-# 2. Subimos un nivel hacia la carpeta padre (Algoritmo_de_Shor)
 ruta_padre = os.path.abspath(os.path.join(ruta_actual, '..'))
-
-# 3. Añadimos esa ruta al sistema de Python
 if ruta_padre not in sys.path:
     sys.path.append(ruta_padre)
 
@@ -122,7 +116,6 @@ class Shor:
             print(f'Valor c medido en el circuito cuantico: {c}')
 
             sol = self.calcular_factores(c)
-            print(sol[3])
             correcto = sol[0]
 
         print('PROCESO FINALIZADO.')

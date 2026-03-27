@@ -12,7 +12,7 @@ from qiskit.circuit.library import UnitaryGate
 def exponencial_modular_15(a, n):
     '''
     Crea una puerta unitaria que calcula f(y) = (a * y) mod 15.
-    Este método usa una matriz de permutación, lo que garantiza precisión total.
+    Este método usa una matriz de permutación.
     '''
 
     N_dimension = 2**n 
@@ -29,49 +29,49 @@ def exponencial_modular_15(a, n):
     puerta_u = UnitaryGate(matrix, label=f"({a}*y) mod 15")
     return puerta_u.control()
 
-    '''
-    def exponencial_modular_15(a, n):
-        qc = QuantumCircuit(n)
+'''
+def exponencial_modular_15(a, n):
+    qc = QuantumCircuit(n)
 
-        if a in [2, 13]:
+    if a in [2, 13]:
 
-            qc.swap(0, 1)
+        qc.swap(0, 1)
 
-            qc.swap(1, 2)
+        qc.swap(1, 2)
 
-            qc.swap(2, 3)
+        qc.swap(2, 3)
 
-            if a == 13: 
-                qc.x([0, 1, 2, 3])
-
-        elif a in [7, 8]:
-
-            qc.swap(2, 3)
-
-            qc.swap(1, 2)
-
-            qc.swap(0, 1)
-
-            if a == 7: 
-                qc.x([0, 1, 2, 3])
-
-        elif a in [4, 11]:
-
-            qc.swap(1, 3)
-
-            qc.swap(0, 2)
-
-            if a == 11: 
-                qc.x([0, 1, 2, 3])
-
-        elif a == 14:
-
+        if a == 13: 
             qc.x([0, 1, 2, 3])
 
-        else:
-            raise ValueError(f"Base {a} no válida")
+    elif a in [7, 8]:
 
-        return qc.to_gate().control()
+        qc.swap(2, 3)
+
+        qc.swap(1, 2)
+
+        qc.swap(0, 1)
+
+        if a == 7: 
+            qc.x([0, 1, 2, 3])
+
+    elif a in [4, 11]:
+
+        qc.swap(1, 3)
+
+        qc.swap(0, 2)
+
+        if a == 11: 
+            qc.x([0, 1, 2, 3])
+
+    elif a == 14:
+
+        qc.x([0, 1, 2, 3])
+
+    else:
+        raise ValueError(f"Base {a} no válida")
+
+    return qc.to_gate().control()
     '''
 
 def circuito_shor(N, nQ, a):
@@ -162,7 +162,7 @@ def resultado_mayor_indice(counts):
     while counts:
 
         c_binario = max(counts, key=counts.get)     # Obtengo el resultado con mator indice de repeticion
-        print(c_binario) # DEBUG
+        print("El resultado más repetido es :",c_binario) # DEBUG
         c = int(c_binario, 2)       # Lo decodifico
 
         if (c!=0):
