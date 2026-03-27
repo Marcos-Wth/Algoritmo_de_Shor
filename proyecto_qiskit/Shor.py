@@ -1,75 +1,91 @@
-from modulos import Transformaciones
+import sys
+import os
+
+# 1. Obtenemos la ruta absoluta de la carpeta donde está este archivo (Shor.py)
+ruta_actual = os.path.dirname(os.path.abspath(__file__))
+
+# 2. Subimos un nivel hacia la carpeta padre (Algoritmo_de_Shor)
+ruta_padre = os.path.abspath(os.path.join(ruta_actual, '..'))
+
+# 3. Añadimos esa ruta al sistema de Python
+if ruta_padre not in sys.path:
+    sys.path.append(ruta_padre)
+
+from modulos.Transformaciones import Transformaciones
+from proyecto_qiskit import Cuantica
+
 import math
 import random
 
-from qiskit import QuantumCircuit
-from qiskit.circuit.library import QFT
-from qiskit_aer import AerSimulator
-from qiskit_aer.primitives import Sampler 
 
 class Shor:
     '''
     Esta clase contiene la lógica para a partir de 'N' obtener los factores primos de este.
     '''
 
-    def __init__(self, N, nQ):
+    def __init__(self, N=15, nQ=10, optimizacion=1, repeticiones=4096):
         '''
         Almacena el número cuyos factores primos se desea obtener, 'N', así como una variable para llevar a cabo el control de las bases.
 
         Args:
-            N (int): Número a factorizar.
-            nQ (int): Número de qubits con los que va a trabajar la exponencial modular.
+            N (int): Número a factorizar. De base es 15
+            nQ (int): Número de qubits que se dedican a la entrada de la exponencial modular. De base es 10
+            optimizacion (int): Nivel de optimizacion que se aplicara al circuito cuantico
+            repeticiones (int): Numero de veces que se ejecutara el circuito cuantico con cada base
         '''
         self.N=N
         self.nQ=nQ
         self.a = 0
-        self.establecer_base()
-        self.basesUsadas = set()
 
-        self.simulator = AerSimulator()
+        self.optimizacion = optimizacion
+        self.repeticiones = repeticiones
+
+        self.basesUsadas = set()
+        self.establecer_base()
+
 
     def establecer_base(self):
         '''
-        Esta función establece la primera base 'a' de la exponencial modular y la almacena en el atributo de clase
+        Esta función establece la base 'a' de la exponencial modular y la almacena en el atributo de clase
         '''
+        i=0
         base = random.randint(2,self.N-1)
 
         while ((math.gcd(base, self.N) != 1) or base in self.basesUsadas):
             self.basesUsadas.add(base)
             base = random.randint(2,self.N-1)
+            i=i+1
+            if (i>self.N):
+                self.a = -1
+                return
         
         self.a = base
         self.basesUsadas.add(base)
+        return
 
     def obtener_c(self):
         '''
         Usa Qiskit para crear un circuito, medir y obtener el valor 'c'.
 
         Returns:
-            c (double): Valor de salida de la QFT.
+            c (double): Valor de salida de la QFT decodificado.
         '''
-        bitsEntrada = self.N.bit_length() # Obtengo el numero de qubits necesarios para la exponencial modular
-        circuito = QuantumCircuit(self.nQ + bitsEntrada, self.nQ)
 
-        circuito.h(range(self.nQ)) # Aplico Hadamard al registro de la entrada
+        # 1. Creamos el circuito pasándole los atributos de la clase
+        qc = Cuantica.circuito_shor(self.N, self.nQ, self.a)
+        
+        # Control de error: circuito_shor devuelve 0 si n >= nQ
+        if qc == 0:
+            return 0
 
-        circuito.x(self.nQ)
+        # 2. Obtenemos las mediciones usando el simulador
+        counts = Cuantica.ejecutar_en_simulador(qc, self.optimizacion, self.repeticiones)
 
-        qft = QFT(num_qubits=self.nQ, inverse=True).to_gate()
-        circuito.append(qft, range(self.nQ))
-
-        circuito.measure(range(self.nQ), range(self.nQ))
-
-        sampler = Sampler() 
-        job = sampler.run(circuito, shots=1)
-        print ("JOB: ",job) # Debug
-        result = job.result()
-
-        counts = result.quasi_dists[0]
-
-        c = max(counts, key=counts.get)
+        # 3. Filtramos el diccionario para obtener el resultado decodificado más repetido
+        c = Cuantica.resultado_mayor_indice(counts)
 
         return c
+   
 
 
 
@@ -96,14 +112,14 @@ class Shor:
         while not correcto:
             self.establecer_base()
             bases = bases +1
-            if bases >= self.N - 2:
+            if (bases >= self.N - 2 or self.a == -1):
                 print("Se han agotado las bases posibles.")
                 break
                 
             print(f'Probando base a = {self.a}')
 
             c = self.obtener_c()
-            print(f'Valor c medido en el circuito: {c}')
+            print(f'Valor c medido en el circuito cuantico: {c}')
 
             sol = self.calcular_factores(c)
             print(sol[3])
@@ -119,5 +135,5 @@ class Shor:
    
 # Pruebas
 
-prueba= Shor(55, 10)
+prueba= Shor(15, 8, 3, 10000)
 prueba.shor()

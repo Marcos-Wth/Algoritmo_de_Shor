@@ -173,5 +173,5 @@ class Transformaciones():
             codigo = f"PRIMOS ENCONTRADOS: N={self.N} -> p={p}, q={q} (periodo={r})"
             return [True, p, q, codigo, r]
         else:
-            codigo = f"ERROR: Factores p={p}, q={q} no son válidos para N={self.N}"
+            codigo = f"ERROR: Factores p={p}, q={q} no son válidos para N={self.N} (periodo={r})"
             return [False, p, q, codigo, r]
