@@ -99,7 +99,7 @@ class Shor:
         Esta función llama al resto, y se encarga de que el proceso se repita hasta que los primos son correctos, primero haciendo que se repita la obtención de 'c',
         y si eso no funciona en un par de ocasiones, hará que se repita la elección de la base directamente.
         '''
-        print('\nIniciando Algoritmo de Shor')
+        print(f'\nIniciando Algoritmo de Shor para N = {self.N}')
         correcto = False
         bases = 0
 
@@ -112,11 +112,20 @@ class Shor:
                 
             print(f'Probando base a = {self.a}')
 
-            c = self.obtener_c()
-            print(f'Valor c medido en el circuito cuantico: {c}')
+            try: # Este bloque esta, por si ocurre algun error, el que suele ocurrir es que la matriz de la exponencial modular no es unitaria
 
-            sol = self.calcular_factores(c)
-            correcto = sol[0]
+                c = self.obtener_c()
+                print(f'Valor c medido en el circuito cuantico: {c}')
+
+                sol = self.calcular_factores(c)
+                correcto = sol[0]
+            except ValueError as e:
+
+                if "not unitary" in str(e):
+                    print(f"  Aviso: La base {self.a} generó una matriz no unitaria. Saltando a la siguiente")
+                    continue
+                else:
+                    raise e 
 
         print('PROCESO FINALIZADO.')
         p = sol[1]
@@ -128,5 +137,5 @@ class Shor:
    
 # Pruebas
 
-prueba= Shor(15, 8, 3, 10000)
+prueba= Shor(63, 12, 3, 1024)
 prueba.shor()
