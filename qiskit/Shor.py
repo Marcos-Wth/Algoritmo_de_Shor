@@ -6,7 +6,7 @@ if ruta_padre not in sys.path:
     sys.path.append(ruta_padre)
 
 from modulos.Transformaciones import Transformaciones
-from proyecto_qiskit import Cuantica
+from qiskit import Cuantica
 
 import math
 import random
