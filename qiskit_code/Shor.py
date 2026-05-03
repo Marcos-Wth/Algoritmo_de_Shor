@@ -6,7 +6,7 @@ if ruta_padre not in sys.path:
     sys.path.append(ruta_padre)
 
 from modulos.Transformaciones import Transformaciones
-from qiskit import Cuantica
+from qiskit_code import Cuantica
 
 import math
 import random
@@ -99,7 +99,7 @@ class Shor:
         Esta función llama al resto, y se encarga de que el proceso se repita hasta que los primos son correctos, primero haciendo que se repita la obtención de 'c',
         y si eso no funciona en un par de ocasiones, hará que se repita la elección de la base directamente.
         '''
-        print(f'\nIniciando Algoritmo de Shor para N = {self.N}')
+        print(f'\nIniciando Algoritmo de Shor para N = {self.N} con {self.nQ} qubits')
         correcto = False
         bases = 0
 
@@ -131,11 +131,12 @@ class Shor:
         p = sol[1]
         q = sol[2]
         r = sol[4]
-        print(sol[3])
+        if (sol[0]):
+            print(sol[3])
         return [p, q, c, r] # Devuelvo los valores para luego cuando haga el programa con interfaz
 
    
 # Pruebas
 
-prueba= Shor(63, 12, 3, 1024)
-prueba.shor()
+#prueba= Shor(63, 12, 3, 1024)
+#prueba.shor()
