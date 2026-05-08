@@ -22,6 +22,5 @@ if __name__ == "__main__":
 
     nQ = calcular_qubits(N)
     
-    print("HOLA QUE TAL ME HE INICIADO Y ESO") # DEBUG
     instancia_shor = Shor(N, nQ, 3, 1024)
     instancia_shor.shor()
