@@ -8,7 +8,7 @@ if ruta_padre not in sys.path:
 from modulos.Transformaciones import Transformaciones
 import qiskit_code
 import qsimov_code
-
+from collections import Counter
 import math
 import random
 
@@ -74,18 +74,18 @@ class Shor:
             return qiskit_code.resultado_mayor_indice(counts)
             
         elif self.backend == "qsimov":
-            counts = qsimov_code.ejecutar_shor_qsimov(self.N, self.nQ, self.a, self.repeticiones)
-                        
-            # Control de error: si n >= nQ, nuestra función devuelve 0
-            if counts == 0: 
-                return 0
-                
-            # Extraemos el valor c decodificado
-            return qsimov_code.resultado_mayor_indice_qsimov(counts)
             
-        else:
-            raise ValueError(f"Backend no reconocido: {self.backend}. Usa 'qiskit' o 'qusimov'.")
-   
+
+            resultados = []
+            for _ in range(self.repeticiones):
+                c = qsimov_code.circuito_shor(self.N, self.nQ, self.a)  
+                if c is None:                                             
+                    return 0
+                resultados.append(c)
+            
+            c_mas_frecuente = Counter(resultados).most_common(1)[0][0]
+            return int(c_mas_frecuente, 2)
+    
 
 
 
@@ -138,4 +138,4 @@ class Shor:
         r = sol[4]
         if (sol[0]):
             print(sol[3])
-        return [p, q, c, r] # Devuelvo los valores para luego cuando haga el programa con interfaz
+        return [p, q, c, r]

@@ -30,6 +30,7 @@ def exponencial_modular(a, N, n):
         matrix[resultado, y] = 1
 
     puerta_u = UnitaryGate(matrix, label=f"({a}*y) mod {N}")
+
     return puerta_u.control()
 
 

@@ -22,5 +22,5 @@ if __name__ == "__main__":
 
     nQ = calcular_qubits(N)
     
-    instancia_shor = Shor(N, nQ, 3, 1024, "qsimov")
+    instancia_shor = Shor(N, nQ, 3, 30, "qsimov")
     instancia_shor.shor()

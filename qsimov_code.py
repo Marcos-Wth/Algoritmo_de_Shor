@@ -1,12 +1,13 @@
 import numpy as np
-import math
 
-from qsimov import QRegistry, QGate
+import qsimov
+from qsimov import QRegistry
 from qsimov import QGate
 
-
-def exponencial_modular(a, N, n):
-    N_dimension = 2**n 
+def _expmod_matrix(a, N, n):
+    """Función interna que construye la matriz para SimpleGate."""
+    a, N, n = int(a), int(N), int(n)
+    N_dimension = 2**n
     matrix = np.zeros((N_dimension, N_dimension))
     for y in range(N_dimension):
         if y < N:
@@ -14,78 +15,78 @@ def exponencial_modular(a, N, n):
         else:
             resultado = y
         matrix[resultado, y] = 1
-    puerta = QGate(num_qubits=n, num_bits=n, name=f"U_{a}mod{N}")
-    try:
-        puerta.matrix = matrix
-    except AttributeError:
-        print("Aviso: No se puede inyectar la matriz directamente. Intentando alternativa...")
-        
-    return puerta
+    return matrix
 
-def qft_inversa(qr, nQ):
+# Se registra una sola vez al importar el módulo
+qsimov.add_gate("expmod", _expmod_matrix, 3, 3, overwrite=True)
 
-    # Swaps
-    for i in range(nQ // 2):
-        qr = qr.apply_gate("SWAP", targets=[i, nQ - i - 1])
 
-    # Rotaciones y Hadamard
-    for j in range(nQ):
-        for m in range(j):
-            angulo = -np.pi / (2 ** (j - m))
-            
-            try:
-                qr = qr.apply_gate("P", targets=[j], controls=[m], angle=angulo)
-            except (TypeError, ValueError):
-                # Si falla, fabricamos la puerta Fase controlada nosotros mismos al vuelo
-                matriz_fase = np.array([[1, 0], [0, np.exp(1j * angulo)]])
-                puerta_fase = QGate(name=f"P_{angulo:.2f}", matrix=matriz_fase)
-                qr = qr.apply_gate(puerta_fase, targets=[j], controls=[m])
-            
-        qr = qr.apply_gate("H", targets=[j])
-    
-    return qr
+def exponencial_modular(a, N, n):
+    # El string "expmod(2,15,4)" sigue el mismo patrón que "runity(3)"
+    # y el parser de qsimov lo acepta sin problema
+    return qsimov.SimpleGate(f"expmod({a},{N},{n})")
 
-def ejecutar_shor_qsimov(N, nQ, a, repeticiones=4096):
+
+def qft_inversa(n_qubits: int) -> qsimov.QGate:
+
+    qft = qsimov.QGate(n_qubits, 0, f"QFT{n_qubits}")
+
+    for k in range(n_qubits):
+        # 1. Hadamard sobre el qubit actual
+        qft.add_operation("H", targets=k)
+
+        # 2. Rotaciones de fase controladas CR(2π/2^(m+1))
+        #    control = qubit k+m, target = qubit k
+        #    runity(m+1) aplica exactamente R(2π/2^(m+1))
+        for m in range(1, n_qubits - k):
+            qft.add_operation(
+                f"runity({m + 1})",
+                targets=k,
+                controls={k + m}
+            )
+
+    # 3. Intercambio de qubits para corregir el orden de bits
+    for i in range(n_qubits // 2):
+        qft.add_operation("swap", targets=[i, n_qubits - 1 - i])
+
+    return qft.invert()
+
+def circuito_shor(N, nQ, a):
     n = N.bit_length()
-    
-    if (n >= nQ):
-        print(f"Error: El número de qubits de conteo (nQ={nQ}) debe ser mayor que n={n}")
-        return 0
+
+    if n >= nQ:
+        print(f"Error: nQ={nQ} debe ser mayor que n={n}")
+        return None
 
     qr = QRegistry(nQ + n)
 
-    # Superposición
+    # Superposición en el registro de conteo
     for i in range(nQ):
-        qr = qr.apply_gate("H", targets=[i])
-        
-    # Inicialización a 1 en el registro inferior
-    qr = qr.apply_gate("X", targets=[nQ])
+        qr = qr.apply_gate("H", targets=i)
 
-    # Exponencial Modular controlada
+    # BUG 2 corregido: el LSB del registro de trabajo es nQ+n-1 (qubit 0 = MSB global)
+    # targets=nQ flipaba el MSB del trabajo → valor entero 2^(n-1) en vez de 1
+    qr = qr.apply_gate("X", targets=nQ + n - 1)
+
+    # Exponencial modular controlada
     for q in range(nQ):
-        base_potenciada = pow(a, 2**q, N) 
+        # BUG 1 corregido: qubit q tiene peso 2^(nQ-1-q), así que debe
+        # controlar a^(2^(nQ-1-q)) para que el trabajo acumule a^x correctamente
+        base_potenciada = pow(a, 2**(nQ - 1 - q), N)
         puerta_base = exponencial_modular(base_potenciada, N, n)
-        
-        qr = qr.apply_gate(puerta_base, targets=list(range(nQ, nQ + n)), controls=[q])
+        qr = qr.apply_gate(
+            puerta_base,
+            targets=list(range(nQ, nQ + n)),
+            controls={q}
+        )
 
-    qr = qft_inversa(qr, nQ)
+    # IQFT sobre el registro de conteo
+    iqft = qft_inversa(nQ)
+    qr = qr.apply_gate(iqft, targets=list(range(nQ)))
 
-    _, medicion = qr.measure(list(range(nQ)))
-    c_binario = "".join(str(int(bit)) for bit in medicion)
+    # Medición del registro de conteo
+    qr, medicion = qr.measure(set(range(nQ)))
 
-    return {c_binario: repeticiones}
+    c_binario = "".join(str(int(medicion[i])) for i in range(nQ))
 
-def resultado_mayor_indice_qsimov(counts):
-    # Lógica agnóstica igual que antes
-    counts_copia = dict(counts) 
-    
-    while counts_copia:
-        c_binario = max(counts_copia, key=counts_copia.get)
-        c = int(c_binario, 2)
-
-        if c != 0:
-            return c
-        
-        del counts_copia[c_binario]
-
-    return 0
+    return c_binario
