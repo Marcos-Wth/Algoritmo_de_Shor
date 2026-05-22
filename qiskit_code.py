@@ -58,9 +58,9 @@ def circuito_shor(N, nQ, a):
 
     # Aplico la puerta controlada 'nQ' veces
     for q in range(nQ):
-        # Calculamos la base para esta iteración: a^(2^q) mod 15
+        # Calculamos la base para esta iteración: a^(2^q) mod N
         # Esto es lo que "escala" la exponencial modular correctamente
-        base_potenciada = pow(a, 2**q, 15)
+        base_potenciada = pow(a, 2**q, N)
         
         # Creamos la compuerta específica para esa potencia
         puerta = exponencial_modular(base_potenciada, N, n)
@@ -68,8 +68,6 @@ def circuito_shor(N, nQ, a):
         # La añadimos al circuito
         qc.append(puerta, [q] + list(range(nQ, nQ + n)))
         
-
-    #iqft = QFT(num_qubits=nQ, inverse=True).to_gate()
     iqft = qft_inversa(nQ)
     qc.append(iqft, range(nQ))
 

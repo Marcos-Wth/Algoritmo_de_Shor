@@ -1,6 +1,6 @@
 import sys
 import math
-from qiskit_code.Shor import Shor 
+from Shor import Shor
 
 
 def calcular_qubits(N):
@@ -22,5 +22,5 @@ if __name__ == "__main__":
 
     nQ = calcular_qubits(N)
     
-    instancia_shor = Shor(N, nQ, 3, 1024)
+    instancia_shor = Shor(N, nQ, 3, 1024, "qsimov")
     instancia_shor.shor()

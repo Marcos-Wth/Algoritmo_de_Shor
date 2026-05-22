@@ -6,7 +6,8 @@ if ruta_padre not in sys.path:
     sys.path.append(ruta_padre)
 
 from modulos.Transformaciones import Transformaciones
-from qiskit_code import Cuantica
+import qiskit_code
+import qsimov_code
 
 import math
 import random
@@ -17,7 +18,7 @@ class Shor:
     Esta clase contiene la lógica para a partir de 'N' obtener los factores primos de este.
     '''
 
-    def __init__(self, N=15, nQ=10, optimizacion=1, repeticiones=4096):
+    def __init__(self, N=15, nQ=10, optimizacion=1, repeticiones=4096, backend="qiskit"):
         '''
         Almacena el número cuyos factores primos se desea obtener, 'N', así como una variable para llevar a cabo el control de las bases.
 
@@ -30,9 +31,9 @@ class Shor:
         self.N=N
         self.nQ=nQ
         self.a = 0
-
         self.optimizacion = optimizacion
         self.repeticiones = repeticiones
+        self.backend = backend.lower()
 
         self.basesUsadas = set()
         self.establecer_base()
@@ -65,20 +66,25 @@ class Shor:
             c (double): Valor de salida de la QFT decodificado.
         '''
 
-        # 1. Creamos el circuito pasándole los atributos de la clase
-        qc = Cuantica.circuito_shor(self.N, self.nQ, self.a)
-        
-        # Control de error: circuito_shor devuelve 0 si n >= nQ
-        if qc == 0:
-            return 0
-
-        # 2. Obtenemos las mediciones usando el simulador
-        counts = Cuantica.ejecutar_en_simulador(qc, self.optimizacion, self.repeticiones)
-
-        # 3. Filtramos el diccionario para obtener el resultado decodificado más repetido
-        c = Cuantica.resultado_mayor_indice(counts)
-
-        return c
+        if self.backend == "qiskit":
+            # Tu lógica actual de Qiskit
+            qc_qiskit = qiskit_code.circuito_shor(self.N, self.nQ, self.a)
+            if qc_qiskit == 0: return 0
+            counts = qiskit_code.ejecutar_en_simulador(qc_qiskit, self.optimizacion, self.repeticiones)
+            return qiskit_code.resultado_mayor_indice(counts)
+            
+        elif self.backend == "qsimov":
+            counts = qsimov_code.ejecutar_shor_qsimov(self.N, self.nQ, self.a, self.repeticiones)
+                        
+            # Control de error: si n >= nQ, nuestra función devuelve 0
+            if counts == 0: 
+                return 0
+                
+            # Extraemos el valor c decodificado
+            return qsimov_code.resultado_mayor_indice_qsimov(counts)
+            
+        else:
+            raise ValueError(f"Backend no reconocido: {self.backend}. Usa 'qiskit' o 'qusimov'.")
    
 
 
@@ -112,17 +118,16 @@ class Shor:
                 
             print(f'Probando base a = {self.a}')
 
-            try: # Este bloque esta, por si ocurre algun error, el que suele ocurrir es que la matriz de la exponencial modular no es unitaria
-
+            try:
                 c = self.obtener_c()
                 print(f'Valor c medido en el circuito cuantico: {c}')
-
                 sol = self.calcular_factores(c)
                 correcto = sol[0]
-            except ValueError as e:
-
-                if "not unitary" in str(e):
-                    print(f"  Aviso: La base {self.a} generó una matriz no unitaria. Saltando a la siguiente")
+            except Exception as e: 
+                # Hacemos el control de errores un poco más genérico para que soporte ambos
+                error_str = str(e).lower()
+                if "not unitary" in error_str or "unitar" in error_str:
+                    print(f"  Aviso: La base {self.a} dio un error de unitariedad. Saltando...")
                     continue
                 else:
                     raise e 
@@ -134,9 +139,3 @@ class Shor:
         if (sol[0]):
             print(sol[3])
         return [p, q, c, r] # Devuelvo los valores para luego cuando haga el programa con interfaz
-
-   
-# Pruebas
-
-#prueba= Shor(63, 12, 3, 1024)
-#prueba.shor()
