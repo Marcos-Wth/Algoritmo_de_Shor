@@ -9,7 +9,7 @@ def calcular_qubits(N):
     return nQ
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 4:
         print("Error. Uso: python main.py <N>")
         sys.exit(1)
 
@@ -17,10 +17,21 @@ if __name__ == "__main__":
         N = int(sys.argv[1])
         if N < 3: raise ValueError
     except ValueError:
-        print("Por favor, introduce un número entero mayor que 2.")
+        print("N debe ser un número entero mayor que 2.")
         sys.exit(1)
 
+    try:
+        sim = str(sys.argv[2])
+    except ValueError:
+        print("El valor introducido no corresponde a ningun simulador")
     nQ = calcular_qubits(N)
+
+    try:
+        rep = int(sys.argv[3])
+        if (rep < 1 or rep > 4096): raise ValueError
+    except ValueError:
+        print("En número de repeticiones debe ser mayor a o y menor que 4096")
+
     
-    instancia_shor = Shor(N, nQ, 3, 30, "qsimov")
+    instancia_shor = Shor(N, nQ, 3, rep, sim)
     instancia_shor.shor()
