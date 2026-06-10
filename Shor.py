@@ -138,4 +138,4 @@ class Shor:
         r = sol[4]
         if (sol[0]):
             print(sol[3])
-        return [p, q, c, r]
+        return [sol[0],p, q, c, r]

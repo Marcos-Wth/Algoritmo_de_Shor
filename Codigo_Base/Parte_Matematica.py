@@ -179,37 +179,37 @@ class Transformaciones():
 
 #        PRUEBAS DEL CÓDIGO
 #                       (N, nQ, a, c)
-prueba1=Transformaciones(55, 10, 26, 205)   # Valores de Quirk
-sol1=prueba1.obtener_primos()
+# prueba1=Transformaciones(55, 10, 26, 205)   # Valores de Quirk
+# sol1=prueba1.obtener_primos()
 
-prueba2=Transformaciones(15, 10, 7, 256)    # Valores con los que se obtiene un resultado válido
-sol2=prueba2.obtener_primos()
+# prueba2=Transformaciones(15, 10, 7, 256)    # Valores con los que se obtiene un resultado válido
+# sol2=prueba2.obtener_primos()
 
-prueba3=Transformaciones(15, 10, 9, 256)    # Valores para los que no se puede calcular el periodo  
-sol3=prueba3.obtener_primos()
+# prueba3=Transformaciones(15, 10, 9, 256)    # Valores para los que no se puede calcular el periodo  
+# sol3=prueba3.obtener_primos()
 
-prueba4=Transformaciones(15, 10, 14, 256)   # Valores para los que los primos encontrados sin erroneos
-sol4=prueba4.obtener_primos()
+# prueba4=Transformaciones(15, 10, 14, 256)   # Valores para los que los primos encontrados sin erroneos
+# sol4=prueba4.obtener_primos()
 
-prueba1=Transformaciones(55, 10, 21, 512)   # Valores de Quirk modificados para obtener periodo par
-sol5=prueba1.obtener_primos()
+# prueba1=Transformaciones(55, 10, 21, 512)   # Valores de Quirk modificados para obtener periodo par
+# sol5=prueba1.obtener_primos()
 
-print("\n\n")
+# print("\n\n")
 
-print("Esta prueba es para los valores de la prueba estandar de quirk (el periodo es impar)")
-print(sol1[3],"\n")
+# print("Esta prueba es para los valores de la prueba estandar de quirk (el periodo es impar)")
+# print(sol1[3],"\n")
 
-print("Esta es una prueba con unos valores que dan resultado")
-print(sol2[3],"\n")
+# print("Esta es una prueba con unos valores que dan resultado")
+# print(sol2[3],"\n")
 
-print("Esto es una prueba con unos valores para los cuales no se encuentra el periodo")
-print(sol3[3],"\n")
+# print("Esto es una prueba con unos valores para los cuales no se encuentra el periodo")
+# print(sol3[3],"\n")
 
-print("Esto es una prueba con unos valores para los que se obtiene 'p' y 'q' que no son correctos")
-print(sol4,"\n")
+# print("Esto es una prueba con unos valores para los que se obtiene 'p' y 'q' que no son correctos")
+# print(sol4,"\n")
 
-print("Esta prueba es para los valores modificados de la prueba estandar de Quirk (el periodo es par)")
-print(sol5[3],"\n")
+# print("Esta prueba es para los valores modificados de la prueba estandar de Quirk (el periodo es par)")
+# print(sol5[3],"\n")
 
 
 # Algunos casos más de prueba son:
