@@ -2,7 +2,8 @@ import time
 import math
 import csv
 import os
-import psutil
+import multiprocessing as mp
+import resource
 import statistics
 from datetime import datetime
 from Shor import Shor
@@ -237,9 +238,40 @@ def medir_tasa_fallos(repQiskit, repQsimov, muestras=5,
 #  ───────────────────────────── Test de Memoria ──────────────────────────────
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _proceso_medir_memoria(N, nQ, repeticiones, simulador, queue):
+    """
+    Función ejecutada en un proceso hijo aislado.
+
+    Ejecuta el algoritmo de Shor una vez y devuelve, a través de la queue,
+    el PICO de memoria RSS de este proceso (en MB). Al ser un proceso nuevo,
+    su memoria parte de cero y no arrastra nada de ejecuciones anteriores.
+
+    Args:
+        N (int): Número que debe factorizar el simulador.
+        nQ (int): Número de qubits para la entrada de la exponencial modular.
+        repeticiones (int): Número de veces que se ejecuta el simulador.
+        simulador (str): Simulador que se usa para la factorización ('qiskit' o 'qsimov').
+        queue (multiprocessing.Queue): Canal para devolver el resultado al proceso padre.
+    """
+    try:
+        Shor(N, nQ, 3, repeticiones, simulador).shor()
+
+        # ru_maxrss: pico de RSS de ESTE proceso desde que arrancó (KB en Linux)
+        pico_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        queue.put(round(pico_kb / 1024, 2))
+    except Exception as e:
+        queue.put(("ERROR", str(e)))
+
+
 def _ejecutar_y_medir_memoria(N, nQ, repeticiones, simulador):
     """
-    Ejecuta el algoritmo de Shor una vez y devuelve el consumo de memoria RAM en MB.
+    Ejecuta el algoritmo de Shor una vez en un proceso aislado y devuelve
+    el pico de memoria RAM (RSS) consumido por dicha ejecución, en MB.
+
+    Se usa un proceso nuevo (multiprocessing) en lugar de medir en el
+    proceso actual porque el allocator de memoria no devuelve al SO la
+    memoria liberada entre ejecuciones, lo que falsearía las medidas de
+    ejecuciones posteriores a la de mayor consumo.
 
     Args:
         N (int): Número que debe factorizar el simulador.
@@ -247,20 +279,20 @@ def _ejecutar_y_medir_memoria(N, nQ, repeticiones, simulador):
         repeticiones (int): Número de veces que se ejecuta el simulador.
         simulador (str): Simulador que se usa para la factorización ('qiskit' o 'qsimov').
     """
-    proceso = psutil.Process(os.getpid())
-    memoria_inicial = proceso.memory_info().rss
+    queue = mp.Queue()
+    p = mp.Process(
+        target=_proceso_medir_memoria,
+        args=(N, nQ, repeticiones, simulador, queue)
+    )
+    p.start()
+    resultado = queue.get()
+    p.join()
 
-    try:
-        Shor(N, nQ, 3, repeticiones, simulador).shor()
-        memoria_final = proceso.memory_info().rss
-        
-        # Diferencia en Megabytes (MB)
-        consumo_ram = (memoria_final - memoria_inicial) / (1024 ** 2)
-        return round(max(0.0, consumo_ram), 2)
-        
-    except Exception as e:
-        print(f"ERROR → {e}")
+    if isinstance(resultado, tuple) and resultado[0] == "ERROR":
+        print(f"ERROR → {resultado[1]}")
         return -1
+
+    return resultado
 
 
 def medir_memoria(repQiskit, repQsimov, 
@@ -320,14 +352,100 @@ def medir_memoria(repQiskit, repQsimov,
     print(f"\nResultados guardados en '{ruta_final}'")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  ───────────────────────────── Estimación de recursos─────────────────────────
+#  ──────────────────────── Estimación de memoria ──────────────────────────────
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def _formato_legible(num_bytes):
+    """
+    Convierte un número de bytes a una cadena legible con la unidad
+    más apropiada (B, KB, MB, GB, TB, PB, EB).
+    """
+    unidades = ["B", "KB", "MB", "GB", "TB", "PB", "EB"]
+    valor = float(num_bytes)
+    for unidad in unidades:
+        if valor < 1024 or unidad == unidades[-1]:
+            return f"{valor:.2f} {unidad}"
+        valor /= 1024
+
+
+def estimar_memoria(valores_N, fichero_salida="estimacion_memoria_shor.csv"):
+    """
+    Genera un CSV con la estimación de memoria RAM necesaria para
+    simular el algoritmo de Shor.
+
+    Args:
+        valores_N (list): Lista de números N a factorizar.
+        fichero_salida (str): Nombre base del fichero CSV.
+    """
+    ruta_final = _generar_ruta_fichero(fichero_salida)
+    print(f"Guardando estimaciones de memoria en '{ruta_final}'\n")
+
+    BYTES_POR_AMPLITUD = 16  # complex128: 8 (real) + 8 (imaginaria)
+
+    cabecera = [
+        "N",
+        "Bits_n",
+        "Qubits_Simulado",
+        "Memoria_Simulado_MB",
+        "Memoria_Simulado_Legible",
+        "Qubits_Estandar",
+        "Memoria_Estandar_MB",
+        "Memoria_Estandar_Legible",
+    ]
+
+    with open(ruta_final, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(cabecera)
+
+        for N in valores_N:
+            n = math.ceil(math.log2(N))
+
+            # ── Circuito simplificado (el realmente simulado en este TFG) ──
+            qubits_simulado = 3 * n
+            bytes_simulado  = (2 ** qubits_simulado) * BYTES_POR_AMPLITUD
+            mb_simulado     = round(bytes_simulado / (1024 ** 2), 4)
+
+            # ── Circuito estándar / real (Beckman et al., 1996) ────────────
+            qubits_estandar = 5 * n + 1
+            bytes_estandar  = (2 ** qubits_estandar) * BYTES_POR_AMPLITUD
+            mb_estandar     = round(bytes_estandar / (1024 ** 2), 4)
+
+            writer.writerow([
+                N,
+                n,
+                qubits_simulado,
+                mb_simulado,
+                _formato_legible(bytes_simulado),
+                qubits_estandar,
+                mb_estandar,
+                _formato_legible(bytes_estandar),
+            ])
+
+            print(f"N={N} (n={n}) -> "
+                  f"Simulado: {qubits_simulado} qubits ({_formato_legible(bytes_simulado)}) | "
+                  f"Estándar: {qubits_estandar} qubits ({_formato_legible(bytes_estandar)})")
+
+    print(f"\nEstimaciones de memoria generadas con éxito.")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ──────────────────────── Estimación de recursos cuánticos ───────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+def generar_bits_rsa(bits_list):
+    """
+    Genera valores N "placeholder" cuyo único propósito es tener
+    exactamente el bit-length indicado, para usarlos en
+    estimar_recursos / estimar_memoria (que solo usan
+    n = ceil(log2(N))).
+
+    NO son semiprimos reales y NO deben pasarse a los simuladores.
+    """
+    return [2 ** (n - 1) + 1 for n in bits_list]
 
 def estimar_recursos(valores_N, fichero_salida="estimacion_teorica_shor.csv"):
     """
     Genera un CSV con estimaciones teóricas de profundidad, puertas y qubits 
-    para el algoritmo de Shor basado en la arquitectura de Vedral, Barenco, Ekert 
-    y Beckman et al. (1996).
+    para el algoritmo de Shor.
     
     Args:
         valores_N (list): Lista de números N a factorizar.
@@ -386,33 +504,98 @@ def estimar_recursos(valores_N, fichero_salida="estimacion_teorica_shor.csv"):
 
     print(f"\nEstimaciones teóricas generadas con éxito.")
 
-# ----------------------------------------------------------------
-    #   PRUEBAS DE CÓDIGO
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ──────────────────────── Automatización de Ejecuciones ──────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-# medir_tiempos(
-#         repQiskit=256,
-#         repQsimov=5,
-#         muestras=5,
-#         fichero_salida="resultados_tiempo.csv"
-#     )
+def ejecutar_pruebas(muestras):
     
+    print("INICIANDO PRUEBAS")
+    tiempo_inicio = time.perf_counter()
 
-# medir_tasa_fallos(
-#         repQiskit=256,
-#         repQsimov=5,
-#         muestras=5,
-#         fichero_salida="resultados_tasa_fallos.csv"
-#     )
+    # Pruebas de TIEMPO DE EJECUCIÓN
+
+    print("Ejecutando Prueba 1/6")
+    medir_tiempos(
+        repQiskit=128,
+        repQsimov=1,
+        muestras=muestras,
+        fichero_salida="resultados_tiempo_1.csv"
+    )
+
+    print("Ejecutando Prueba 2/6")
+    medir_tiempos(
+        repQiskit=1024,
+        repQsimov=5,
+        muestras=muestras,
+        fichero_salida="resultados_tiempo_2.csv"
+    )
+
+    # Pruebas de TASA DE FALLOS
+
+    print("Ejecutando Prueba 3/6")
+    medir_tasa_fallos(
+        repQiskit=128,
+        repQsimov=1,
+        muestras=muestras,
+        fichero_salida="resultados_tasa_fallos_1.csv"
+    )
+
+    print("Ejecutando Prueba 4/6")
+    medir_tasa_fallos(
+        repQiskit=1024,
+        repQsimov=5,
+        muestras=muestras,
+        fichero_salida="resultados_tasa_fallos_2.csv"
+    )
+
+    # Estimación de MEMORIA
+
+    v = [
+        # n=4-6 bits (ya probados antes)
+        15, 21, 35, 39, 51, 55,
+        # n=7 bits
+        65, 69, 77, 85, 87, 91,
+        # n=8 bits
+        111, 115, 119, 123, 129,
+        # n=9 bits
+        155, 159, 161, 177, 183,
+        # n=10 bits
+        213, 215, 217, 219, 221,
+        # n=11 bits (≈128 GB teóricos para el simulador)
+        377, 391, 437, 481, 493,
+        # n=12 bits (≈1 TB teóricos para el simulador — punto claramente inviable)
+        2279, 2491, 2501, 2537, 2623 ]
+    
+    print("Ejecutando Prueba 5/6")
+    estimar_memoria(
+        valores_N= v,
+        fichero_salida= "estimaciones_memoria.csv"
+    )
+
+    # Estimación de CIRCUITO CUÁNTICO
+
+    BITS_RSA = [512, 768, 1024, 1536, 2048, 3072, 4096]
+    v = generar_bits_rsa(BITS_RSA)
+
+    print("Ejecutando Prueba 6/6")
+    estimar_recursos(
+            valores_N= v,
+            fichero_salida= "estimaciones_circuito.csv"
+    )
+
+    print("PRUEBAS FINALIZADAS")
+    tiempo_fin = time.perf_counter()
+    tiempo_total_minutos = (tiempo_fin - tiempo_inicio) / 60
+    print(f"\nTiempo total de ejecución: {tiempo_total_minutos:.2f} minutos.")
 
 # medir_memoria(
-#         repQiskit=256,
-#         repQsimov= 5,
+#         repQiskit=20,
+#         repQsimov= 1,
 #         fichero_salida= "resultados_memoria.csv"
 # )
 
-v = [15, 21, 33, 35, 39, 51, 55] 
-estimar_recursos(
-        valores_N= v,
-        fichero_salida= "estimaciones_circuito.csv"
-)
+
+
+ejecutar_pruebas(15) # Cambiar el numero introdicido puede aumentar mucho el tiempo de ejecución
