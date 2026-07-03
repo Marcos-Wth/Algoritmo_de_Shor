@@ -13,8 +13,9 @@ from Shor import Shor
 # ───────────────────────────── Funciones generales ─────────────────────────────
 # ═══════════════════════════════════════════════════════════════════════════════
 
- # Todos los semiprimos en el intervalo [15,55]. No hay mayores a 55 porque los simuladores no pueden paasar los 21 qubits de circuito
-VALORES_N_DEFECTO = [15, 21, 33, 35, 39, 51, 55]  
+
+VALORES_N_DEFECTO = [15, 21, 33, 35, 39, 51, 55]  # Todos los semiprimos en el intervalo [15,55]. No hay mayores a 55 porque qiskit no puede factorizar números de más de 6 bits
+VALORES_N_QSIMOV = [65, 91, 119]  # Qsimov puede llegar a números de 7 bits
 
 
 def calcular_qubits(N):
@@ -590,12 +591,110 @@ def ejecutar_pruebas(muestras):
     tiempo_total_minutos = (tiempo_fin - tiempo_inicio) / 60
     print(f"\nTiempo total de ejecución: {tiempo_total_minutos:.2f} minutos.")
 
-# medir_memoria(
-#         repQiskit=20,
-#         repQsimov= 1,
-#         fichero_salida= "resultados_memoria.csv"
-# )
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ──────────────────────── Test de Qsimov ─────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
 
+def medir_tiempos_qsimov(repQsimov, muestras=5,
+                  valores_N=None,
+                  fichero_salida="resultados_tiempo.csv"):
+    """
+    Función que automatiza las pruebas de Tiempo de ejecución para Qsimov.
 
+    Args:
+        repQsimov (int): Repeticiones del circuito cuántico para Qsimov.
+        muestras (int): Ejecuciones por N sobre las que se calcula la media.
+        valores_N (list): Valores de N a probar. Si None, usa VALORES_N_DEFECTO.
+        fichero_salida (str): Nombre base del fichero CSV.
+    """
+    if valores_N is None:
+        valores_N = VALORES_N_DEFECTO
 
-ejecutar_pruebas(15) # Cambiar el numero introdicido puede aumentar mucho el tiempo de ejecución
+    ruta_final = _generar_ruta_fichero(fichero_salida)
+    print(f"Guardando resultados en '{ruta_final}'\n")
+
+    # Cabecera adaptada únicamente para los datos de Qsimov
+    cabecera = ["N", "Qubits", "TiempoMedioQsimov", "StdQsimov", "RepQsimov"]
+
+    with open(ruta_final, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(cabecera)
+
+        for N in valores_N:
+            nQ     = calcular_qubits(N)
+            qubits = (3 * nQ) // 2
+
+            print(f"{'='*55}")
+            print(f"  N={N}  |  nQ={nQ}  |  Qubits del circuito={qubits}")
+            print(f"{'='*55}")
+
+            # ── Qsimov ────────────────────────────────────────────────────
+            tiempos_qsimov = []
+            for i in range(muestras):
+                print(f"  [Qsimov] muestra {i+1}/{muestras} ...", end=" ", flush=True)
+                t = _ejecutar_y_medir_tiempo(N, nQ, repQsimov, "qsimov")
+                print(f"{t:.4f} s" if t != -1 else "FALLO")
+                if t != -1:
+                    tiempos_qsimov.append(t)
+
+            tiempo_medio_qsimov = (round(statistics.mean(tiempos_qsimov), 4)
+                                   if tiempos_qsimov else -1)
+            std_qsimov          = (round(statistics.stdev(tiempos_qsimov), 4)
+                                   if len(tiempos_qsimov) >= 2 else -1)
+
+            # Escritura de los datos limpios de Qsimov
+            writer.writerow([N, qubits, tiempo_medio_qsimov, std_qsimov, repQsimov])
+            f.flush()
+
+        writer.writerow([])
+        writer.writerow(["Muestras:", muestras])
+
+    print(f"\nResultados guardados en '{ruta_final}'")
+
+def medir_memoria_qsimov(repQsimov, 
+                  valores_N=None,
+                  fichero_salida="resultados_memoria.csv"):
+    """
+    Función que automatiza las pruebas de consumo de Memoria (RAM) para Qsimov.
+    Se realiza una única medición por valor de N dado el determinismo
+    del tamaño del vector de estado en simuladores cuánticos.
+
+    Args:
+        repQsimov (int): Repeticiones del circuito cuántico para Qsimov.
+        valores_N (list): Valores de N a probar. Si None, usa VALORES_N_DEFECTO.
+        fichero_salida (str): Nombre base del fichero CSV.
+    """
+    if valores_N is None:
+        valores_N = VALORES_N_DEFECTO
+
+    ruta_final = _generar_ruta_fichero(fichero_salida)
+    print(f"Guardando resultados de memoria en '{ruta_final}'\n")
+
+    # Cabecera adaptada únicamente para los datos de Qsimov
+    cabecera = ["N", "Qubits", "MemoriaQsimov_MB", "RepQsimov"]
+
+    with open(ruta_final, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(cabecera)
+
+        for N in valores_N:
+            nQ     = calcular_qubits(N)
+            qubits = (3 * nQ) // 2
+
+            print(f"{'='*55}")
+            print(f"  N={N}  |  nQ={nQ}  |  Qubits del circuito={qubits}")
+            print(f"{'='*55}")
+
+            # ── Qsimov ────────────────────────────────────────────────────
+            print("  [Qsimov] Midiendo RAM...", end=" ", flush=True)
+            memoria_qsimov = _ejecutar_y_medir_memoria(N, nQ, repQsimov, "qsimov")
+            print(f"{memoria_qsimov:.2f} MB" if memoria_qsimov != -1 else "FALLO")
+
+            writer.writerow([N, qubits, memoria_qsimov, repQsimov])
+            f.flush()
+
+    print(f"\nResultados guardados en '{ruta_final}'")
+
+medir_memoria_qsimov(1,VALORES_N_QSIMOV,"resultados_memoria_extra")
+
+#ejecutar_pruebas(15) # Cambiar el numero introducido puede aumentar mucho el tiempo de ejecución
